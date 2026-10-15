@@ -36,6 +36,7 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -60,11 +61,14 @@ public final class MainActivity extends Activity {
     private BridgeRequest pickerRequest;
     private byte[] pendingImage;
     private boolean resumed;
+    private SaveStore saveStore;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         preferences = getSharedPreferences("library", MODE_PRIVATE);
+        File documents = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+        saveStore = new SaveStore(new File(documents != null ? documents : getFilesDir(), "JSNES/saves"));
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(0xff101416);
@@ -152,6 +156,15 @@ public final class MainActivity extends Activity {
 
     private void dispatch(BridgeRequest request, String method, JSONObject params) {
         switch (method) {
+            case "saveState":
+            case "listStates":
+            case "readState":
+            case "renameState":
+                worker.execute(() -> {
+                    try { request.ok(saveStore.execute(method, params)); }
+                    catch (Exception error) { request.fail(message(error)); }
+                });
+                break;
             case "listDirectory":
                 worker.execute(() -> scanSavedDirectory(request));
                 break;

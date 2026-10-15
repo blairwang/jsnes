@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isAndroid, nativeRequest } from "./bridge";
 import { parseCheat } from "./cheats";
 import MobilePlayer from "./MobilePlayer";
 import TouchControls from "./TouchControls";
+import SaveManager from "./SaveManager";
+import { createSave } from "./saveStates";
 import "./mobile.css";
 
 function savedCheats(key) {
@@ -46,6 +48,7 @@ export default function MobilePage() {
   const [cheats, setCheats] = useState([]);
   const [cheatName, setCheatName] = useState("");
   const [cheatCode, setCheatCode] = useState("");
+  const [saving, setSaving] = useState(false);
   const player = useRef(null);
   const screen = useRef(null);
   const fileInput = useRef(null);
@@ -83,7 +86,7 @@ export default function MobilePage() {
     return () => clearTimeout(timeout);
   }, [notice]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!game) return;
     try {
       player.current = new MobilePlayer(screen.current, game.data, (error) => {
@@ -254,28 +257,16 @@ export default function MobilePage() {
     }
   }
 
-  function saveState() {
+  async function saveState() {
+    if (saving) return;
+    setSaving(true);
     try {
-      localStorage.setItem(
-        `jsnes-state-${game.key}`,
-        JSON.stringify({ version: 1, state: player.current.nes.toJSON() }),
-      );
-      setNotice("快速存档已保存（每个游戏一个槽位）");
+      const entry = await createSave(game, player.current.nes.toJSON());
+      setNotice(`已新增存档：${entry.path}`);
     } catch (error) {
       setNotice(`存档失败：${error.message}`);
-    }
-  }
-
-  function loadState() {
-    try {
-      const saved = localStorage.getItem(`jsnes-state-${game.key}`);
-      if (!saved) throw new Error("当前游戏还没有快速存档");
-      const parsed = JSON.parse(saved);
-      if (parsed.version !== 1) throw new Error("不兼容的存档版本");
-      player.current.restore(parsed.state);
-      setNotice("存档已读取");
-    } catch (error) {
-      setNotice(`读档失败：${error.message}`);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -469,7 +460,8 @@ export default function MobilePage() {
             </button>
             <button onClick={() => setModal("options")}>更多 ⋯</button>
           </div>
-          <div className="console-screen" ref={screen}>
+          <div className="console-screen">
+            <div className="canvas-host" ref={screen} />
             {(paused || fault) && (
               <div className="pause-overlay">
                 <strong>{fault ? "游戏已停止" : "PAUSED"}</strong>
@@ -501,11 +493,23 @@ export default function MobilePage() {
             className="mobile-modal"
             role="dialog"
             aria-modal="true"
-            aria-label={modal === "cheats" ? "金手指管理" : "游戏选项"}
+            aria-label={
+              modal === "cheats"
+                ? "金手指管理"
+                : modal === "saves"
+                  ? "存档管理"
+                  : "游戏选项"
+            }
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-heading">
-              <h2>{modal === "cheats" ? "金手指" : "游戏选项"}</h2>
+              <h2>
+                {modal === "cheats"
+                  ? "金手指"
+                  : modal === "saves"
+                    ? "存档管理"
+                    : "游戏选项"}
+              </h2>
               <button onClick={() => setModal(null)} aria-label="关闭">
                 ✕
               </button>
@@ -581,21 +585,37 @@ export default function MobilePage() {
                 <button onClick={() => setMuted(!muted)}>
                   声音 <span>{muted ? "关闭" : "开启"}</span>
                 </button>
-                <button disabled={!!fault} onClick={saveState}>
-                  快速存档 <span>保存当前进度</span>
+                <button disabled={!!fault || saving} onClick={saveState}>
+                  {saving ? "正在保存…" : "保存新存档"}{" "}
+                  <span>新增一份当前进度</span>
                 </button>
-                <button disabled={!!fault} onClick={loadState}>
-                  快速读档 <span>恢复已存进度</span>
+                <button
+                  disabled={!!fault || saving}
+                  onClick={() => setModal("saves")}
+                >
+                  读取 / 管理存档 <span>选择存档、改名</span>
                 </button>
                 <button onClick={() => setModal("reset")}>
                   重新开始 <span>重置当前游戏</span>
                 </button>
                 <p className="modal-description">
-                  存档和金手指保存在应用本机数据中，卸载或清除应用数据会移除。键盘：方向键移动，X
+                  存档按游戏分目录保存，每次保存新增文件；卸载或清除应用数据会移除存档和金手指。键盘：方向键移动，X
                   / Z 为 A / B，Enter 开始，Shift 选择。
                 </p>
               </div>
             ) : null}
+            {modal === "saves" && (
+              <SaveManager
+                game={game}
+                captureState={() => player.current.nes.toJSON()}
+                restoreState={(state) => {
+                  player.current.restore(state);
+                  setPaused(true);
+                  setModal(null);
+                }}
+                onNotice={setNotice}
+              />
+            )}
             {modal === "reset" && (
               <div className="reset-confirm">
                 <p>重新开始会丢失当前未保存的进度。</p>

@@ -4,6 +4,10 @@ A JavaScript NES emulator.
 
 It's a library that works in both the browser and Node.js.
 
+## Android app
+
+The `android/` project bundles the React web UI for offline Android play, with directory and ROM selection, touch controls, cheats, fast-forward, PNG screenshots, and quick save/load. See [Android setup and build instructions](android/README.md).
+
 ## Installation
 
 For Node.js or Webpack:

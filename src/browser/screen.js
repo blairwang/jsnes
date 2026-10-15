@@ -75,6 +75,7 @@ export default class Screen {
 
   fitInParent = () => {
     let parent = this.canvas.parentNode;
+    if (!parent) return;
     let parentWidth = parent.clientWidth;
     let parentHeight = parent.clientHeight;
     let parentRatio = parentWidth / parentHeight;
@@ -97,6 +98,6 @@ export default class Screen {
   destroy() {
     this.canvas.removeEventListener("mousedown", this._handleMouseDown);
     this.canvas.removeEventListener("mouseup", this._handleMouseUp);
-    this.canvas.parentNode.removeChild(this.canvas);
+    this.canvas.remove();
   }
 }
