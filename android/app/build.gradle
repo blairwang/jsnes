@@ -1,0 +1,48 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.github.jsnes.android'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'io.github.jsnes.android'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets.main.assets.srcDir layout.buildDirectory.dir('generated/webAssets')
+}
+
+// Both Android Studio and gradlew build the current web source before packaging.
+def webDir = rootProject.file('../web')
+def npmCommand = System.getProperty('os.name').toLowerCase().contains('windows') ? 'npm.cmd' : 'npm'
+
+tasks.register('buildWeb', Exec) {
+    workingDir webDir
+    commandLine npmCommand, 'run', 'build:android'
+    inputs.dir new File(webDir, 'src')
+    inputs.dir new File(webDir, 'public')
+    inputs.dir rootProject.file('../src')
+    inputs.files new File(webDir, 'index.html'), new File(webDir, 'vite.config.js'), new File(webDir, 'package.json'), new File(webDir, 'package-lock.json')
+    outputs.dir new File(webDir, 'dist-android')
+}
+
+tasks.register('syncWebAssets', Sync) {
+    dependsOn 'buildWeb'
+    from new File(webDir, 'dist-android')
+    into layout.buildDirectory.dir('generated/webAssets/web')
+}
+tasks.named('preBuild').configure { dependsOn 'syncWebAssets' }
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.14.0'
+}

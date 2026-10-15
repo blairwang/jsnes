@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import ListPage from "./ListPage";
 import RunPage from "./RunPage";
+import MobilePage from "./mobile/MobilePage";
 import { handleError } from "./utils";
 
 class App extends Component {
@@ -18,6 +19,7 @@ class App extends Component {
         </div>
       );
     }
+    if (import.meta.env.MODE === "android") return <MobilePage />;
     return (
       <BrowserRouter>
         <div className="h-full font-mono">
@@ -25,6 +27,7 @@ class App extends Component {
             <Route exact path="/" element={<ListPage />} />
             <Route path="/run/:slug" element={<RunPage />} />
             <Route path="/run" element={<RunPage />} />
+            <Route path="/android" element={<MobilePage />} />
           </Routes>
         </div>
       </BrowserRouter>

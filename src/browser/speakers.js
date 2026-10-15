@@ -101,15 +101,25 @@ export default class Speakers {
   // Callers may fire-and-forget — the node will be null until the worklet
   // loads, and writeSample() silently drops samples during that brief window.
   async start() {
+    if (this.audioCtx) return;
     if (!window.AudioContext) {
       return;
     }
-    this.audioCtx = new window.AudioContext();
+    const audioCtx = new window.AudioContext({ sampleRate: 44100 });
+    this.audioCtx = audioCtx;
 
     const blob = new Blob([workletCode], { type: "application/javascript" });
     const workletUrl = URL.createObjectURL(blob);
-    await this.audioCtx.audioWorklet.addModule(workletUrl);
-    URL.revokeObjectURL(workletUrl);
+    try {
+      await audioCtx.audioWorklet.addModule(workletUrl);
+    } catch (error) {
+      if (this.audioCtx === audioCtx) this.stop();
+      throw error;
+    } finally {
+      URL.revokeObjectURL(workletUrl);
+    }
+    // A pause or ROM switch may have closed this context while loading.
+    if (this.audioCtx !== audioCtx) return;
 
     this.node = new AudioWorkletNode(this.audioCtx, "nes-audio-processor", {
       outputChannelCount: [2],

@@ -6,6 +6,9 @@
 /local-roms
 /node_modules
 /tmp
+/web/node_modules
+/web/dist
+/web/dist-android
 
 # wrangler files
 .wrangler
